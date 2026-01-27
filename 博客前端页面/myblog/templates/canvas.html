@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画布编辑器</title>
+    <link rel="stylesheet" href="../static/css/me.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .canvas-area {
+            flex: 1;
+            background-color: #fff;
+            position: relative;
+            overflow: hidden;
+            border-right: 2px solid #ddd;
+        }
+
+        .canvas {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-color: #fafafa;
+            background-image: 
+                linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+                linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+                linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        .sidebar {
+            width: 300px;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .shape-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .shape-btn {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            background-color: #f9f9f9;
+        }
+
+        .shape-btn:hover {
+            border-color: #4CAF50;
+            background-color: #e8f5e9;
+            transform: scale(1.05);
+        }
+
+        .circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #2196F3;
+        }
+
+        .square {
+            width: 40px;
+            height: 40px;
+            background-color: #FF5722;
+        }
+
+        .triangle {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 35px solid #4CAF50;
+        }
+
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .upload-area:hover {
+            border-color: #4CAF50;
+            background-color: #e8f5e9;
+        }
+
+        .upload-area p {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .upload-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .text-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .color-picker {
+            width: 100%;
+            height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .size-slider {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .add-text-btn {
+            width: 100%;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .add-text-btn:hover {
+            background-color: #1976D2;
+        }
+
+        .canvas-element {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+        }
+
+        .canvas-element.selected {
+            outline: 2px solid #4CAF50;
+        }
+
+        .canvas-element img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #4CAF50;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+        }
+
+        .canvas-element.selected .resize-handle {
+            display: block;
+        }
+
+        .resize-handle.nw {
+            top: -5px;
+            left: -5px;
+            cursor: nwse-resize;
+        }
+
+        .resize-handle.ne {
+            top: -5px;
+            right: -5px;
+            cursor: nesw-resize;
+        }
+
+        .resize-handle.sw {
+            bottom: -5px;
+            left: -5px;
+            cursor: nesw-resize;
+        }
+
+        .resize-handle.se {
+            bottom: -5px;
+            right: -5px;
+            cursor: nwse-resize;
+        }
+
+        .text-element {
+            padding: 10px;
+            background-color: transparent;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .shape-element {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 20px;
+            height: 20px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .canvas-element.selected .delete-btn {
+            display: flex;
+        }
+
+        .clear-btn {
+            width: 100%;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .clear-btn:hover {
+            background-color: #d32f2f;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="canvas-area">
+            <div class="canvas" id="canvas"></div>
+        </div>
+        <div class="sidebar">
+            <div class="section">
+                <h3>添加图形</h3>
+                <div class="shape-buttons">
+                    <div class="shape-btn" onclick="addShape('circle')" title="圆形">
+                        <div class="circle"></div>
+                    </div>
+                    <div class="shape-btn" onclick="addShape('square')" title="方形">
+                        <div class="square"></div>
+                    </div>
+                    <div class="shape-btn" onclick="addShape('triangle')" title="三角形">
+                        <div class="triangle"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>上传图片</h3>
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                    <p>点击或拖拽上传图片</p>
+                    <button class="upload-btn">选择图片</button>
+                    <input type="file" id="fileInput" accept="image/*" style="display: none" onchange="handleFileUpload(event)">
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>添加文本</h3>
+                <input type="text" class="text-input" id="textInput" placeholder="输入文本内容">
+                <input type="color" class="color-picker" id="textColor" value="#000000" title="文本颜色">
+                <input type="range" class="size-slider" id="textSize" min="12" max="72" value="16" title="文本大小">
+                <button class="add-text-btn" onclick="addText()">添加文本</button>
+            </div>
+
+            <div class="section">
+                <h3>操作</h3>
+                <button class="clear-btn" onclick="clearCanvas()">清空画布</button>
+            </div>
+
+            <div class="info-text">
+                <p>提示：</p>
+                <p>• 点击元素选中</p>
+                <p>• 拖拽移动元素</p>
+                <p>• 拖拽角落调整大小</p>
+                <p>• 点击红色×删除元素</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let canvas = document.getElementById('canvas');
+        let selectedElement = null;
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY, startWidth, startHeight, startLeft, startTop;
+        let currentResizeHandle = null;
+        let elementIdCounter = 0;
+
+        function createBaseElement(type) {
+            const element = document.createElement('div');
+            element.className = 'canvas-element';
+            element.id = 'element-' + elementIdCounter++;
+            element.style.left = '50px';
+            element.style.top = '50px';
+            element.style.width = '100px';
+            element.style.height = '100px';
+            element.dataset.type = type;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '×';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                element.remove();
+                saveCanvasState();
+            };
+            element.appendChild(deleteBtn);
+
+            const handles = ['nw', 'ne', 'sw', 'se'];
+            handles.forEach(handle => {
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle ' + handle;
+                resizeHandle.dataset.handle = handle;
+                element.appendChild(resizeHandle);
+            });
+
+            return element;
+        }
+
+        function addShape(shapeType) {
+            const element = createBaseElement('shape');
+            element.dataset.shape = shapeType;
+
+            const shapeElement = document.createElement('div');
+            shapeElement.className = 'shape-element';
+            shapeElement.style.width = '100%';
+            shapeElement.style.height = '100%';
+
+            if (shapeType === 'circle') {
+                const circle = document.createElement('div');
+                circle.style.width = '100%';
+                circle.style.height = '100%';
+                circle.style.borderRadius = '50%';
+                circle.style.backgroundColor = '#2196F3';
+                shapeElement.appendChild(circle);
+            } else if (shapeType === 'square') {
+                const square = document.createElement('div');
+                square.style.width = '100%';
+                square.style.height = '100%';
+                square.style.backgroundColor = '#FF5722';
+                shapeElement.appendChild(square);
+            } else if (shapeType === 'triangle') {
+                const triangle = document.createElement('div');
+                triangle.style.width = '0';
+                triangle.style.height = '0';
+                triangle.style.borderLeft = '50px solid transparent';
+                triangle.style.borderRight = '50px solid transparent';
+                triangle.style.borderBottom = '100px solid #4CAF50';
+                shapeElement.appendChild(triangle);
+            }
+
+            element.appendChild(shapeElement);
+            canvas.appendChild(element);
+            selectElement(element);
+            saveCanvasState();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const element = createBaseElement('image');
+                    element.style.width = '200px';
+                    element.style.height = '200px';
+
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.draggable = false;
+                    element.appendChild(img);
+
+                    canvas.appendChild(element);
+                    selectElement(element);
+                    saveCanvasState();
+                };
+                reader.readAsDataURL(file);
+            }
+            event.target.value = '';
+        }
+
+        function addText() {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) {
+                alert('请输入文本内容');
+                return;
+            }
+
+            const color = document.getElementById('textColor').value;
+            const size = document.getElementById('textSize').value;
+
+            const element = createBaseElement('text');
+            element.style.width = 'auto';
+            element.style.height = 'auto';
+            element.style.minWidth = '50px';
+            element.style.minHeight = '30px';
+
+            const textElement = document.createElement('div');
+            textElement.className = 'text-element';
+            textElement.textContent = text;
+            textElement.style.color = color;
+            textElement.style.fontSize = size + 'px';
+            textElement.style.fontWeight = 'bold';
+
+            element.appendChild(textElement);
+            canvas.appendChild(element);
+            selectElement(element);
+            saveCanvasState();
+
+            document.getElementById('textInput').value = '';
+        }
+
+        function selectElement(element) {
+            if (selectedElement) {
+                selectedElement.classList.remove('selected');
+            }
+            selectedElement = element;
+            if (element) {
+                element.classList.add('selected');
+            }
+        }
+
+        function handleMouseDown(e) {
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                currentResizeHandle = e.target.dataset.handle;
+                const element = e.target.parentElement;
+                selectElement(element);
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = element.offsetWidth;
+                startHeight = element.offsetHeight;
+                startLeft = element.offsetLeft;
+                startTop = element.offsetTop;
+                e.preventDefault();
+            } else if (e.target.closest('.canvas-element')) {
+                const element = e.target.closest('.canvas-element');
+                selectElement(element);
+                isDragging = true;
+                startX = e.clientX - element.offsetLeft;
+                startY = e.clientY - element.offsetTop;
+                e.preventDefault();
+            } else {
+                selectElement(null);
+            }
+        }
+
+        function handleMouseMove(e) {
+            if (isDragging && selectedElement) {
+                const canvasRect = canvas.getBoundingClientRect();
+                let newX = e.clientX - startX;
+                let newY = e.clientY - startY;
+
+                newX = Math.max(0, Math.min(newX, canvasRect.width - selectedElement.offsetWidth));
+                newY = Math.max(0, Math.min(newY, canvasRect.height - selectedElement.offsetHeight));
+
+                selectedElement.style.left = newX + 'px';
+                selectedElement.style.top = newY + 'px';
+            } else if (isResizing && selectedElement) {
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+
+                if (currentResizeHandle.includes('e')) {
+                    selectedElement.style.width = Math.max(50, startWidth + deltaX) + 'px';
+                }
+                if (currentResizeHandle.includes('s')) {
+                    selectedElement.style.height = Math.max(30, startHeight + deltaY) + 'px';
+                }
+                if (currentResizeHandle.includes('w')) {
+                    const newWidth = Math.max(50, startWidth - deltaX);
+                    selectedElement.style.width = newWidth + 'px';
+                    selectedElement.style.left = (startLeft + startWidth - newWidth) + 'px';
+                }
+                if (currentResizeHandle.includes('n')) {
+                    const newHeight = Math.max(30, startHeight - deltaY);
+                    selectedElement.style.height = newHeight + 'px';
+                    selectedElement.style.top = (startTop + startHeight - newHeight) + 'px';
+                }
+            }
+        }
+
+        function handleMouseUp() {
+            if (isDragging || isResizing) {
+                saveCanvasState();
+            }
+            isDragging = false;
+            isResizing = false;
+            currentResizeHandle = null;
+        }
+
+        function saveCanvasState() {
+            const elements = [];
+            document.querySelectorAll('.canvas-element').forEach(element => {
+                elements.push({
+                    id: element.id,
+                    type: element.dataset.type,
+                    left: element.style.left,
+                    top: element.style.top,
+                    width: element.style.width,
+                    height: element.style.height,
+                    shape: element.dataset.shape,
+                    html: element.innerHTML
+                });
+            });
+            localStorage.setItem('canvasState', JSON.stringify(elements));
+        }
+
+        function loadCanvasState() {
+            const state = localStorage.getItem('canvasState');
+            if (state) {
+                const elements = JSON.parse(state);
+                elements.forEach(data => {
+                    const element = createBaseElement(data.type);
+                    element.id = data.id;
+                    element.style.left = data.left;
+                    element.style.top = data.top;
+                    element.style.width = data.width;
+                    element.style.height = data.height;
+                    element.dataset.shape = data.shape || '';
+                    element.innerHTML = data.html;
+                    canvas.appendChild(element);
+                    
+                    const currentId = parseInt(element.id.split('-')[1]);
+                    if (currentId >= elementIdCounter) {
+                        elementIdCounter = currentId + 1;
+                    }
+                });
+            }
+        }
+
+        function clearCanvas() {
+            if (confirm('确定要清空画布吗？')) {
+                canvas.innerHTML = '';
+                localStorage.removeItem('canvasState');
+                elementIdCounter = 0;
+            }
+        }
+
+        canvas.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+
+        window.addEventListener('beforeunload', saveCanvasState);
+
+        loadCanvasState();
+    </script>
+</body>
+</html>
